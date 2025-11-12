@@ -24,6 +24,13 @@ async function run() {
         await client.connect();
         const db = client.db('ecoServer-db')
         const challangeCollection = db.collection('challanges');
+        const userCollection=db.collection('users');
+
+         app.post('/users', async (req, res) => {
+            const newUser = req.body;
+            const result = await userCollection.insertOne(newUser);
+            res.send(result);
+        })
         app.get('/challanges', async (req, res) => {
             const cursor = challangeCollection.find().sort({ startDate: -1 }).limit(6);
             const result = await cursor.toArray();
