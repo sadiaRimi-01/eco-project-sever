@@ -24,15 +24,24 @@ async function run() {
         await client.connect();
         const db = client.db('ecoServer-db')
         const challangeCollection = db.collection('challanges');
-        const userCollection=db.collection('users');
+        const userCollection = db.collection('users');
 
-         app.post('/users', async (req, res) => {
+        app.post('/users', async (req, res) => {
             const newUser = req.body;
-            const result = await userCollection.insertOne(newUser);
-            res.send(result);
+            const email = req.body.email;
+            const query = { email: email }
+            existingUser = await userCollection.findOne(query);
+            if (existingUser) {
+                res, send('user exist.do not need to saved')
+            }
+            else {
+                const result = await userCollection.insertOne(newUser);
+                res.send(result);
+            }
+
         })
         app.get('/challanges', async (req, res) => {
-            const cursor = challangeCollection.find().sort({ startDate: -1 }).limit(6);
+            const cursor = challangeCollection.find();
             const result = await cursor.toArray();
             res.send(result)
         })
@@ -41,6 +50,47 @@ async function run() {
             const result = await challangeCollection.insertOne(newChallanges);
             res.send(result);
         })
+        app.get('/ActiveChallenges',async(req,res)=>{
+            const cursor=challangeCollection.find().sort({ startDate: -1 }).limit(6);
+            const result=await cursor.toArray();
+            res.send(result);
+        })
+        // API to get live community statistics
+app.get('/stats', async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0]; // current date YYYY-MM-DD
+
+        // Count active challenges (startDate <= today <= endDate)
+        const activeChallenges = await challangeCollection.countDocuments({
+            startDate: { $lte: today },
+            endDate: { $gte: today }
+        });
+
+        // Sum participants in active challenges
+        const participantsAgg = await challangeCollection.aggregate([
+            {
+                $match: {
+                    startDate: { $lte: today },
+                    endDate: { $gte: today }
+                }
+            },
+            {
+                $group: { _id: null, totalParticipants: { $sum: "$participants" } }
+            }
+        ]).toArray();
+
+        const totalParticipants = participantsAgg[0]?.totalParticipants || 0;
+
+        res.send({
+            activeChallenges,
+            totalParticipants
+        });
+    } catch (err) {
+        console.error('Error fetching stats:', err);
+        res.status(500).send({ message: 'Failed to fetch stats' });
+    }
+});
+
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
