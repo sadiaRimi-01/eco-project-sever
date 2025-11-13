@@ -201,7 +201,21 @@ app.get('/userChallenges/:userId', async (req, res) => {
   const challenges = await userChallengesCollection.find({ userId }).toArray();
   res.json(challenges);
 });
+// Update progress for a specific challenge
+app.patch('/userChallenges/:userId/:challengeId', async (req, res) => {
+  const { userId, challengeId } = req.params;
+  const { progress } = req.body; // number 0-100
 
+  try {
+    const updateResult = await userChallengesCollection.updateOne(
+      { userId, challengeId },
+      { $set: { progress, lastUpdated: new Date().toISOString() } }
+    );
+    res.json({ message: 'Progress updated', updateResult });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update progress', error: err.message });
+  }
+});
 
         // --------- EVENTS ---------
         app.get('/events', async (req, res) => {
