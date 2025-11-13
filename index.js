@@ -195,6 +195,13 @@ app.post('/challenges/join/:id', async (req, res) => {
     res.status(500).json({ message: 'Failed to join challenge', error: err.message });
   }
 });
+// Get user progress for all challenges
+app.get('/userChallenges/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const challenges = await userChallengesCollection.find({ userId }).toArray();
+  res.json(challenges);
+});
+
 
         // --------- EVENTS ---------
         app.get('/events', async (req, res) => {
