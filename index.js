@@ -10,7 +10,7 @@ app.use(express.json());
 
 const uri = "mongodb+srv://ecoServerUser:NOVCZq7KKJgusw6W@cluster0.vnd8kjj.mongodb.net/?appName=Cluster0";
 
-// Create a MongoClient with Stable API version
+
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -34,7 +34,7 @@ async function run() {
         const eventsCollection = db.collection('events');
         const userChallengesCollection = db.collection('userChallenges');
 
-        // Add user
+        
         app.post('/users', async (req, res) => {
             const newUser = req.body;
             const email = req.body.email;
@@ -47,27 +47,27 @@ async function run() {
             }
         });
 
-       // Get all challenges with advanced filtering
+       
 app.get('/challenges', async (req, res) => {
   try {
     const { category, startDateFrom, startDateTo, minParticipants, maxParticipants } = req.query;
 
     const query = {};
 
-    // 🌿 Category filter (multiple values allowed)
+    
     if (category) {
-      const categories = category.split(','); // Example: ?category=Energy Conservation,Green Living
+      const categories = category.split(','); 
       query.category = { $in: categories };
     }
 
-    // 📅 Date range filter
+   
     if (startDateFrom || startDateTo) {
       query.startDate = {};
       if (startDateFrom) query.startDate.$gte = new Date(startDateFrom);
       if (startDateTo) query.startDate.$lte = new Date(startDateTo);
     }
 
-    // 👥 Participants range filter
+    
     if (minParticipants || maxParticipants) {
       query.participants = {};
       if (minParticipants) query.participants.$gte = parseInt(minParticipants);
@@ -79,26 +79,26 @@ app.get('/challenges', async (req, res) => {
 
   } catch (err) {
     console.error('Error fetching challenges:', err);
-    res.status(500).json({ message: 'Failed to fetch challenges', error: err.message });
+    res.status(500).json({ message: 'Failed to connect fetch challenges', error: err.message });
   }
 });
 
 
-        // Add challenge
+       
         app.post('/challenges', async (req, res) => {
             const newChallanges = req.body;
             const result = await challangeCollection.insertOne(newChallanges);
             res.send(result);
         });
 
-        // Get latest 6 active challenges
+        
         app.get('/ActiveChallenges', async (req, res) => {
             const cursor = challangeCollection.find().sort({ startDate: -1 }).limit(6);
             const result = await cursor.toArray();
             res.send(result);
         });
 
-        // Get challenge by ID (string _id)
+        
         app.get('/challenges/:id', async (req, res) => {
             const { id } = req.params;
             try {
@@ -111,7 +111,7 @@ app.get('/challenges', async (req, res) => {
             }
         });
 
-        // Get live community stats
+        
         app.get('/stats', async (req, res) => {
             try {
                 const today = new Date().toISOString().split('T')[0];
@@ -157,10 +157,10 @@ app.get('/challenges', async (req, res) => {
         });
         
 
-// Join a challenge (protected)
+
 app.post('/challenges/join/:id', async (req, res) => {
   const challengeId = req.params.id;
-  const { userId } = req.body; // send from frontend after login
+  const { userId } = req.body;
 
   if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
@@ -168,22 +168,22 @@ app.post('/challenges/join/:id', async (req, res) => {
     const challenge = await challangeCollection.findOne({ _id: challengeId });
     if (!challenge) return res.status(404).json({ message: 'Challenge not found' });
 
-    // Check if user already joined
+   
     const existing = await userChallengesCollection.findOne({ userId, challengeId });
     if (existing) return res.status(400).json({ message: 'Already joined' });
 
-    // Create userChallenge record
+    
     const userChallenge = {
       userId,
       challengeId,
-      progress: 0, // auto-calc starts at 0%
+      progress: 0, 
       lastUpdated: new Date().toISOString(),
       createdAt: new Date().toISOString()
     };
 
     await userChallengesCollection.insertOne(userChallenge);
 
-    // Increment participants in challenge
+   
     await challangeCollection.updateOne(
       { _id: challengeId },
       { $inc: { participants: 1 } }
@@ -195,16 +195,16 @@ app.post('/challenges/join/:id', async (req, res) => {
     res.status(500).json({ message: 'Failed to join challenge', error: err.message });
   }
 });
-// Get user progress for all challenges
+
 app.get('/userChallenges/:userId', async (req, res) => {
   const { userId } = req.params;
   const challenges = await userChallengesCollection.find({ userId }).toArray();
   res.json(challenges);
 });
-// Update progress for a specific challenge
+
 app.patch('/userChallenges/:userId/:challengeId', async (req, res) => {
   const { userId, challengeId } = req.params;
-  const { progress } = req.body; // number 0-100
+  const { progress } = req.body;
 
   try {
     const updateResult = await userChallengesCollection.updateOne(
@@ -217,7 +217,8 @@ app.patch('/userChallenges/:userId/:challengeId', async (req, res) => {
   }
 });
 
-        // --------- EVENTS ---------
+
+       
         app.get('/events', async (req, res) => {
             try {
                 const today = new Date().toISOString().split('T')[0];
@@ -235,12 +236,32 @@ app.patch('/userChallenges/:userId/:challengeId', async (req, res) => {
             res.send(result);
         });
 
+      
+app.delete('/userChallenges/:userId/:challengeId', async (req, res) => {
+  try {
+    const { userId, challengeId } = req.params;
+    const db = client.db('ecoServer-db');
+    const userChallenges = db.collection('userChallenges');
 
-        // Confirm successful MongoDB connection
+    const result = await userChallenges.deleteOne({ userId, challengeId });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: 'Challenge not found for this user' });
+    }
+
+    res.json({ message: 'Challenge canceled successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to cancel challenge' });
+  }
+});
+
+
+
+        
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. Successfully connected to MongoDB!");
     } finally {
-        // Optional: You can close the connection here if needed
+        
     }
 }
 
