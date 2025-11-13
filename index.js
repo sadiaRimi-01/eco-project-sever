@@ -32,6 +32,7 @@ async function run() {
         const userCollection = db.collection('users');
           const tipsCollection = db.collection('tips');
         const eventsCollection = db.collection('events');
+        const userChallengesCollection = db.collection('userChallenges');
 
         // Add user
         app.post('/users', async (req, res) => {
@@ -154,6 +155,46 @@ app.get('/challenges', async (req, res) => {
             const result = await tipsCollection.insertOne(newTip);
             res.send(result);
         });
+        
+
+// Join a challenge (protected)
+app.post('/challenges/join/:id', async (req, res) => {
+  const challengeId = req.params.id;
+  const { userId } = req.body; // send from frontend after login
+
+  if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  try {
+    const challenge = await challangeCollection.findOne({ _id: challengeId });
+    if (!challenge) return res.status(404).json({ message: 'Challenge not found' });
+
+    // Check if user already joined
+    const existing = await userChallengesCollection.findOne({ userId, challengeId });
+    if (existing) return res.status(400).json({ message: 'Already joined' });
+
+    // Create userChallenge record
+    const userChallenge = {
+      userId,
+      challengeId,
+      progress: 0, // auto-calc starts at 0%
+      lastUpdated: new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    };
+
+    await userChallengesCollection.insertOne(userChallenge);
+
+    // Increment participants in challenge
+    await challangeCollection.updateOne(
+      { _id: challengeId },
+      { $inc: { participants: 1 } }
+    );
+
+    res.json({ message: 'Joined challenge successfully', userChallenge });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Failed to join challenge', error: err.message });
+  }
+});
 
         // --------- EVENTS ---------
         app.get('/events', async (req, res) => {
